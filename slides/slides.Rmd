@@ -1,0 +1,206 @@
+---
+title: "Using a Custom R Package for Teaching Statistics"
+author: |
+  | Mark Andrews
+  | Psychology Department, Nottingham Trent University
+  | 
+  | ```mark.andrews@ntu.ac.uk```
+fontsize: 10pt
+output:
+ beamer_presentation:
+  keep_tex: true
+  fonttheme: "serif"
+  includes:
+   in_header: preamble.tex
+---
+
+```{r, echo=F}
+knitr::opts_chunk$set(echo = T, prompt = F, warning = F, message = F, comment='#>')
+# Thanks to 
+# https://github.com/ramnathv/slidify/issues/189#issuecomment-15850008
+hook1 <- function(x){ gsub("```\n*```r*\n*", "", x) }
+hook2 <- function(x){ gsub("```\n+```\n", "", x) }
+knitr::knit_hooks$set(document = hook1)
+```
+
+```{r, echo=F}
+library(tidyverse)
+```
+
+
+# Background: R in NTU Psychology
+
+* For approximately 10 years, we have used R as the software in undergraduate and MSc advanced statistics modules ($\approx 70$ students per year).
+* In 2019/20, we began the department wide replacement of SPSS by R as the software used in all statistics and research methods modules.
+* In 2019/20, 1st year UG statistics and research methods modules were taught using R ($\approx 1000$ students)
+* In 2020/21, 1st and 2nd year UG statistics and research methods modules were taught using R ($\approx 2000$ students)
+* In 2021/22, in addition to 1st and 2nd year UG statistics and research methods modules, 3rd year research project data analysis supervision will use R ($\approx 2500$ students)
+
+
+# Initial motivation for using a custom R package
+
+* By their second workshop in their 1st year, students were being asked to write the likes of the following:
+```{r,eval = F, indent = '   '}
+Df %>% 
+  group_by(identified_as) %>%
+  summarise(mean_correct = mean(percent_corr, na.rm = T),
+            iqr = IQR(percent_corr, na.rm = T))
+
+
+ggplot(data = Df, 
+       aes(x = Faithful, 
+           fill = FaceSex, colour = FaceSex)) +
+  geom_histogram(binwidth = .25, 
+                 position = "identity", 
+                 alpha = .35) +
+  labs(x = "Faithfulness rating", 
+       y = "Frequency")
+```
+
+#  Initial motivation for using a custom R package
+
+* Opaque multiline R code in the first few classes lead many students to conclude that R code is opaque and inscrutable.
+* Using R was perceived as a matter of copying and pasting inscrutable code.
+* Not much is gained if students replace blindly clicking (in SPSS) by blindly copy-n-pasting (in R).
+* Therefore, the objective of a custom R package was primarily to provide custom functions to replace all opaque multiline R code used throughout all workshops and labs.
+
+# Arguments against a custom R package
+
+* Arguments against using a custom R package for teaching were usually variants of the following related arguments:
+  
+  * students won't learn powerful general tools like `dplyr` and `ggplot`, and instead just learn some limited functions.
+  * using custom function in place of general R code means students will not learn R code generally, nor will they understand what calculations the functions implement.
+  * students will become dependent on a specific package
+  
+
+# Rebuttal to arguments against a custom R package
+
+* The second argument is an argument against all R packages, and even against R (or all high level languages) itself.
+* Likewise, the third argument is an argument against all R packages.
+* In response to the first argument, while teaching powerful general tools like `dplyr` and `ggplot` are excellent and well worth learning, do we have the resources to properly teach them?
+
+# Overview of `psyntur` (0.0.2)
+
+```{r}
+library(psyntur)
+packageVersion("psyntur")
+```
+
+
+* The `psyntur`, in its current state, provides
+  
+  * Some methods for data visualization
+  * Some methods for data exploration
+  * Some helper functions for statistical analysis
+  
+* Available at https://github.com/mark-andrews/psyntur
+* Package webpage at https://mark-andrews.github.io/psyntur
+
+# Data visualization: Scatterplot
+
+```{r, out.width='0.67\\textwidth', fig.align='center'}
+scatterplot(x = trustworthy, y = faithful, 
+            data = faithfulfaces)
+```
+
+
+# Data visualization: Coloured scatterplot
+
+```{r, out.width='0.67\\textwidth', fig.align='center'}
+scatterplot(x = trustworthy, y = faithful, 
+            by = face_sex,
+            data = faithfulfaces)
+```
+
+
+# Data visualization: Coloured scatterplot, with line of best fit
+
+```{r, out.width='0.67\\textwidth', fig.align='center'}
+scatterplot(x = trustworthy, y = faithful, 
+            by = face_sex,
+            best_fit_line = TRUE,
+            data = faithfulfaces)
+```
+
+# Comparing `ggplot` and `psyntur`
+
+* This `scatterplot` function
+```{r, eval = F}
+scatterplot(x = trustworthy, y = faithful, 
+            by = face_sex,
+            best_fit_line = TRUE,
+            data = faithfulfaces)
+```
+implements exactly this:
+```{r, eval = F}
+ggplot(faithfulfaces,
+       aes(x = trustworthy, y = faithful, colour = face_sex)
+) + geom_point() +
+  stat_smooth(method = 'lm', se = FALSE, fullrange = TRUE,
+              formula = 'y ~ x') +
+  theme_classic() +
+  scale_colour_brewer(palette = "Set1")
+```
+
+
+# Exploratory data analysis: Summary statistics
+
+* The `describe` function is a wrapper to `dplyr`'s `summarize` (and `group_by` etc):
+
+```{r}
+describe(data = faithfulfaces, 
+         avg = mean(faithful), stdev = sd(faithful))
+```
+
+
+```{r}
+describe(data = faithfulfaces, 
+         by = face_sex, 
+         avg = mean(faithful), stdev = sd(faithful))
+```
+
+# Exploratory data analysis: Multiple variables, multiple functions
+
+The `describe_across` is an interface to `summarize`, `across`, `pivot_wider`:
+```{r}
+describe_across(faithfulfaces,
+                variables = c(trustworthy, faithful),
+                functions = list(avg = mean, 
+                                 median = median, 
+                                 stdev = sd),
+                pivot = TRUE
+)
+```
+
+# Statistics helper functions
+\footnotesize
+* We also implemented a few helper functions like the following:
+```{r}
+shapiro_test(faithful, by = face_sex, 
+             data = faithfulfaces)
+```
+which implements
+```{r}
+get_shapiro_test_results <- function(x){
+    results <- stats::shapiro.test(x)
+    tibble(statistic = results$statistic, p_value = results$p.value)
+  }
+faithfulfaces %>% 
+  group_by(face_sex) %>%
+  summarise(get_shapiro_test_results(faithful),
+            .groups = 'drop')
+```
+
+
+# Other advantages to using a custom R package
+
+* Data files with help files (e.g. `?faithfulfaces`)
+* Custom help pages for functions
+* Vignettes, see https://mark-andrews.github.io/psyntur/articles/
+
+# The great `install_github` gotcha
+
+* We did have any urgency getting `psyntur` onto CRAN.
+* `devtools::install_github` seemed like a perfectly acceptable alternative
+* However, hundreds of students hit GitHub's `API rate limit exceeded` restriction in workshops.
+* `install_github`, by defaults, asks if all dependencies should be updated to their latest version. This often lead students down the `Do you want to install from sources the package which needs compilation?` rabbit hole. 
