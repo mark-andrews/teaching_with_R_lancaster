@@ -1,5 +1,5 @@
 ---
-title: "Using a Custom R Package for Teaching Statistics"
+title: "Using a custom R package to facilitate teaching"
 author: |
   | Mark Andrews
   | Psychology Department, Nottingham Trent University
